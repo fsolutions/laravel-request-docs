@@ -2,14 +2,14 @@
 
 namespace Rakutentech\LaravelRequestDocs;
 
-use ErrorException;
 use Route;
-use ReflectionMethod;
-use Illuminate\Http\Request;
-use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Str;
 use Exception;
 use Throwable;
+use ErrorException;
+use ReflectionMethod;
+use Illuminate\Support\Str;
+use Illuminate\Http\Request;
+use Illuminate\Foundation\Http\FormRequest;
 
 class LaravelRequestDocs
 {
@@ -81,7 +81,7 @@ class LaravelRequestDocs
         $onlyRouteStartWith = config('request-docs.only_route_uri_start_with') ?? '';
 
         foreach ($routes as $route) {
-            if($onlyRouteStartWith && !Str::startsWith($route->uri, $onlyRouteStartWith)){
+            if ($onlyRouteStartWith && !Str::startsWith($route->uri, $onlyRouteStartWith)) {
                 continue;
             }
 
@@ -120,6 +120,30 @@ class LaravelRequestDocs
             $method           = $controllerInfo['method'];
             $reflectionMethod = new ReflectionMethod($controller, $method);
             $params           = $reflectionMethod->getParameters();
+
+            $rc = new \ReflectionClass($controller);
+            $docComment = $rc->getMethod($method)->getDocComment();
+
+            $docBlockParams = [];
+            $preparedRules = [];
+            $preparedSummery = '';
+
+            if (preg_match_all('/@(\w+)\s+(.*)\r?\n/m', $docComment, $matches)) {
+                $docBlockParams = $matches[0];
+            }
+
+            foreach ($docBlockParams as $key => $param) {
+                if (Str::contains($param, '@docRequest')) {
+                    $readyParam = explode(':', $param);
+                    $preparedRules[$readyParam[1]] = $readyParam[2];
+                }
+                if (Str::contains($param, '@lrdDescription')) {
+                    $preparedSummery .= Str::replace('@lrdDescription ', '', $param);
+                }
+            }
+
+            $controllersInfo[$index]['rules'] = $this->flattenRules($preparedRules);
+            $controllersInfo[$index]['docBlock'] = $preparedSummery;
 
             foreach ($params as $param) {
                 if (!$param->getType()) {
